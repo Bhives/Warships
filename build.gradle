@@ -1,5 +1,5 @@
 buildscript {
-    
+    ext.kotlin_version = '2.0.0'
 
     repositories {
         mavenLocal()
@@ -9,15 +9,14 @@ buildscript {
         google()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.2'
-        
-
+        classpath 'com.android.tools.build:gradle:8.1.4'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
 
-allprojects {
-    apply plugin: "eclipse"
+apply plugin: 'kotlin'
 
+allprojects {
     version = '1.0'
     ext {
         appName = "Warships"
@@ -64,4 +63,16 @@ project(":core") {
         api "com.badlogicgames.gdx:gdx:$gdxVersion"
         
     }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+}
+
+kotlin {
+    jvmToolchain(8)
 }
