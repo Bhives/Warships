@@ -9,6 +9,10 @@ class AndroidLauncher : AndroidApplication() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val config = AndroidApplicationConfiguration()
+        config.apply {
+            useAccelerometer = false
+            config.useCompass = false
+        }
         initialize(Warships(), config)
     }
 }
