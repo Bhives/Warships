@@ -2,6 +2,7 @@ package com.mygdx.warships
 
 import com.badlogic.gdx.ApplicationAdapter
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
@@ -9,16 +10,23 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
+import com.badlogic.gdx.math.Rectangle
+import com.badlogic.gdx.math.Vector2
+import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.scenes.scene2d.InputEvent
 import com.badlogic.gdx.scenes.scene2d.Stage
 import com.badlogic.gdx.scenes.scene2d.ui.Button
-import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import com.badlogic.gdx.scenes.scene2d.ui.TextButton
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener
 import com.mygdx.warships.Assets.battleshipTexture
 import com.mygdx.warships.Assets.carrierTexture
 import com.mygdx.warships.Assets.cruiserTexture
 import com.mygdx.warships.Assets.destroyerTexture
+import com.mygdx.warships.Assets.shipHdTexture
+import com.mygdx.warships.Assets.shipsShader
+import com.mygdx.warships.Assets.skin
+import com.mygdx.warships.Assets.waterShader
+import com.mygdx.warships.Assets.waterTexture
 import com.mygdx.warships.model.Coordinates
 import com.mygdx.warships.model.Ship
 import java.util.Random
@@ -27,17 +35,17 @@ class Warships : ApplicationAdapter() {
 
     private lateinit var camera: OrthographicCamera
     private lateinit var font: BitmapFont
-    private lateinit var spriteBatch: SpriteBatch
+    private lateinit var waterSpriteBatch: SpriteBatch
+    private lateinit var shipsSpriteBatch: SpriteBatch
     private lateinit var destroyerSprite: Sprite
     private lateinit var cruiserSprite: Sprite
     private lateinit var battleshipSprite: Sprite
     private lateinit var carrierSprite: Sprite
-    private lateinit var field: ShapeRenderer
+    private lateinit var grid: ShapeRenderer
 
     private lateinit var stage: Stage
     private lateinit var button: Button
 
-    private var startPoint = 0f
     private var cellSize = 0f
     private var fieldLength = 0f
     private val coordinatePoints = listOf("A", "B", "C", "D", "E", "F", "G", "H", "I", "J")
@@ -46,17 +54,25 @@ class Warships : ApplicationAdapter() {
 
     private val filledCells = mutableSetOf<Coordinates>()
 
+    private lateinit var gridBounds: Rectangle
+
     override fun create() {
         camera = OrthographicCamera()
         camera.setToOrtho(false, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
-        field = ShapeRenderer()
+        grid = ShapeRenderer()
         font = BitmapFont()
-        spriteBatch = SpriteBatch()
+        waterSpriteBatch = SpriteBatch()
+        shipsSpriteBatch = SpriteBatch()
 
         stage = Stage()
         Gdx.input.inputProcessor = stage
 
         Assets.load()
+
+        grid.color = Color.WHITE
+
+        fieldLength = Gdx.graphics.height / GRID_HEIGHT_RATIO
+        cellSize = fieldLength / GRID_SIZE
 
         destroyerSprite = Sprite(destroyerTexture)
         cruiserSprite = Sprite(cruiserTexture)
@@ -66,6 +82,8 @@ class Warships : ApplicationAdapter() {
         positionShips()
 
         drawButton()
+
+        Gdx.input.inputProcessor = InputMultiplexer(InputController(), stage)
     }
 
     override fun render() {
@@ -73,8 +91,9 @@ class Warships : ApplicationAdapter() {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT)
         camera.update()
 
-        field.setProjectionMatrix(camera.combined)
-        spriteBatch.setProjectionMatrix(camera.combined)
+        grid.setProjectionMatrix(camera.combined)
+        waterSpriteBatch.setProjectionMatrix(camera.combined)
+        shipsSpriteBatch.setProjectionMatrix(camera.combined)
 
         stage.act(Gdx.graphics.deltaTime)
         stage.draw()
@@ -83,17 +102,18 @@ class Warships : ApplicationAdapter() {
         ships.forEach { ship ->
             renderShip(ship)
         }
+        onGridTouch()
     }
 
     override fun dispose() {
-        field.dispose()
+        grid.dispose()
         Assets.dispose()
         stage.dispose()
-        spriteBatch.dispose()
+        waterSpriteBatch.dispose()
+        shipsSpriteBatch.dispose()
     }
 
     private fun drawButton() {
-        val skin = Skin(Gdx.files.internal(SKIN_PATH))
         button = TextButton(AUTO_TEXT, skin)
         button.setPosition(
             Gdx.graphics.width / BUTTON_HORIZONTAL_MARGIN_RATIO - button.width / BUTTON_MARGIN_RATIO,
@@ -218,36 +238,41 @@ class Warships : ApplicationAdapter() {
     }
 
     private fun renderGrid() {
-        field.begin(ShapeRenderer.ShapeType.Line)
-        spriteBatch.begin()
-
-        field.color = Color.WHITE
-
-        fieldLength = Gdx.graphics.height / GRID_HEIGHT_RATIO
-        cellSize = fieldLength / GRID_SIZE
-        val screenMargin = Gdx.graphics.height / GRID_MARGIN_RATIO
-        startPoint = Gdx.graphics.height - screenMargin
+        grid.begin(ShapeRenderer.ShapeType.Line)
+        waterSpriteBatch.begin()
 
         for (i in MIN_COORDINATE..GRID_SIZE) {
-            field.line(cellSize * i, cellSize, cellSize * i, fieldLength)
-            field.line(cellSize, cellSize * i, fieldLength, cellSize * i)
+            //vertical lines
+            grid.line(cellSize * i, cellSize, cellSize * i, fieldLength)
+            //horizontal lines
+            grid.line(cellSize, cellSize * i, fieldLength, cellSize * i)
         }
 
-        for (i in MIN_COORDINATE..MAX_COORDINATE) {
-            font.draw(spriteBatch, coordinatePoints[i - 1], cellSize * (i), cellSize * (i))
+        //water
+        for (x in MIN_COORDINATE..MAX_COORDINATE) {
+            for (y in MIN_COORDINATE..MAX_COORDINATE) {
+                waterSpriteBatch.draw(waterTexture, cellSize * x, cellSize * y, cellSize, cellSize)
+            }
         }
+
+        //draw coordinate labels
+        for (i in MIN_COORDINATE..MAX_COORDINATE) {
+            font.draw(waterSpriteBatch, coordinatePoints[i - 1], cellSize * (i), cellSize * (i))
+        }
+
+        gridBounds = Rectangle(cellSize, cellSize, cellSize * GRID_SIZE, cellSize * MAX_COORDINATE)
 
         destroyerSprite.setSize(cellSize, cellSize)
         cruiserSprite.setSize(cellSize, cellSize * CRUISER_SIZE)
         battleshipSprite.setSize(cellSize, cellSize * BATTLESHIP_SIZE)
         carrierSprite.setSize(cellSize, cellSize * CARRIER_SIZE)
 
-        field.end()
-        spriteBatch.end()
+        waterSpriteBatch.end()
+        grid.end()
     }
 
     private fun renderShip(ship: Ship) {
-        spriteBatch.begin()
+        shipsSpriteBatch.begin()
 
         ship.apply {
             sprite.rotation = if (isHorizontal) {
@@ -257,13 +282,52 @@ class Warships : ApplicationAdapter() {
                 0f
             }
             sprite.setPosition(
-                getCellCoordinate(coordinates.col),
-                getCellCoordinate(coordinates.row)
+                getCellCoordinate(coordinates.x),
+                getCellCoordinate(coordinates.y)
             )
-            sprite.draw(spriteBatch)
+            sprite.draw(shipsSpriteBatch)
         }
 
-        spriteBatch.end()
+        shipsSpriteBatch.end()
+    }
+
+    private fun setupShaders(x: Float, y: Float) {
+        if (!waterShader.isCompiled) {
+            Gdx.app.log("Shader", waterShader.log)
+            Gdx.app.exit()
+        }
+        if (!shipsShader.isCompiled) {
+            Gdx.app.log("Shader", shipsShader.log)
+            Gdx.app.exit()
+        }
+
+        waterSpriteBatch.shader = waterShader
+        waterShader.bind()
+        waterShader.setUniformf("u_circleCenter", x, y)
+        waterShader.setUniformf("u_circleRadius", MASK_SIZE)
+        waterShader.setUniformf("u_maskColor", Color.NAVY)
+
+        shipsSpriteBatch.shader = shipsShader
+        shipsShader.bind()
+        shipsShader.setUniformf("u_circleCenter", x, y)
+        shipsShader.setUniformf("u_circleRadius", MASK_SIZE)
+        shipsShader.setUniformi("u_texture", 0)
+        shipsShader.setUniformi("u_maskTexture", 1)
+
+        shipHdTexture.apply {
+            bind(1)
+            bind(0)
+        }
+    }
+
+    private fun onGridTouch() {
+        if (Gdx.input.isTouched) {
+            if (gridBounds.contains(Vector2(Gdx.input.x.toFloat(), Gdx.input.y.toFloat()))) {
+                val touchPos = Vector3(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0f)
+                camera.unproject(touchPos)
+                setupShaders(touchPos.x, touchPos.y)
+            }
+        }
     }
 
     private fun getCellCoordinate(coordinate: Int): Float {
@@ -271,7 +335,7 @@ class Warships : ApplicationAdapter() {
     }
 
     private fun getRandomPosition(): Int {
-        return Random().nextInt(MAX_COORDINATE - 1) + 1
+        return Random().nextInt(MAX_COORDINATE - MIN_COORDINATE) + MIN_COORDINATE
     }
 
     private fun isHorizontal(): Boolean {
@@ -283,7 +347,6 @@ class Warships : ApplicationAdapter() {
         private const val MIN_COORDINATE = 1
         private const val MAX_COORDINATE = 10
         private const val GRID_HEIGHT_RATIO = 1.1f
-        private const val GRID_MARGIN_RATIO = 1.1f
         private const val ROTATION = 270f
 
         private const val BUTTON_HORIZONTAL_MARGIN_RATIO = 1.5f
@@ -297,7 +360,8 @@ class Warships : ApplicationAdapter() {
         private const val BATTLESHIP_SIZE = 3
         private const val CARRIER_SIZE = 4
 
-        private const val SKIN_PATH = "skin/glassy-ui.json"
         private const val AUTO_TEXT = "Auto"
+
+        private const val MASK_SIZE = 900 / 4f
     }
 }
