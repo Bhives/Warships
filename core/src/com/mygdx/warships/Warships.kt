@@ -6,6 +6,7 @@ import com.badlogic.gdx.InputMultiplexer
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
+import com.badlogic.gdx.graphics.Texture
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.Sprite
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
@@ -35,7 +36,8 @@ class Warships : ApplicationAdapter() {
 
     private lateinit var camera: OrthographicCamera
     private lateinit var font: BitmapFont
-    private lateinit var waterSpriteBatch: SpriteBatch
+    private lateinit var gridSpriteBatch: SpriteBatch
+    private lateinit var textSpriteBatch: SpriteBatch
     private lateinit var shipsSpriteBatch: SpriteBatch
     private lateinit var destroyerSprite: Sprite
     private lateinit var cruiserSprite: Sprite
@@ -61,7 +63,8 @@ class Warships : ApplicationAdapter() {
         camera.setToOrtho(false, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
         grid = ShapeRenderer()
         font = BitmapFont()
-        waterSpriteBatch = SpriteBatch()
+        gridSpriteBatch = SpriteBatch()
+        textSpriteBatch = SpriteBatch()
         shipsSpriteBatch = SpriteBatch()
 
         stage = Stage()
@@ -74,13 +77,13 @@ class Warships : ApplicationAdapter() {
         fieldLength = Gdx.graphics.height / GRID_HEIGHT_RATIO
         cellSize = fieldLength / GRID_SIZE
 
-        destroyerSprite = Sprite(destroyerTexture)
-        cruiserSprite = Sprite(cruiserTexture)
-        battleshipSprite = Sprite(battleshipTexture)
-        carrierSprite = Sprite(carrierTexture)
+        font.region.texture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear)
+        font.data.setScale(cellSize / FONT_SCALE_RATIO)
 
+        gridBounds = Rectangle(cellSize, cellSize, cellSize * GRID_SIZE, cellSize * MAX_COORDINATE)
+
+        setupSprites()
         positionShips()
-
         drawButton()
 
         Gdx.input.inputProcessor = InputMultiplexer(InputController(), stage)
@@ -92,7 +95,8 @@ class Warships : ApplicationAdapter() {
         camera.update()
 
         grid.setProjectionMatrix(camera.combined)
-        waterSpriteBatch.setProjectionMatrix(camera.combined)
+        gridSpriteBatch.setProjectionMatrix(camera.combined)
+        textSpriteBatch.setProjectionMatrix(camera.combined)
         shipsSpriteBatch.setProjectionMatrix(camera.combined)
 
         stage.act(Gdx.graphics.deltaTime)
@@ -109,8 +113,19 @@ class Warships : ApplicationAdapter() {
         grid.dispose()
         Assets.dispose()
         stage.dispose()
-        waterSpriteBatch.dispose()
+        gridSpriteBatch.dispose()
         shipsSpriteBatch.dispose()
+    }
+
+    private fun setupSprites() {
+        destroyerSprite = Sprite(destroyerTexture)
+        cruiserSprite = Sprite(cruiserTexture)
+        battleshipSprite = Sprite(battleshipTexture)
+        carrierSprite = Sprite(carrierTexture)
+        destroyerSprite.setSize(cellSize, cellSize)
+        cruiserSprite.setSize(cellSize, cellSize * CRUISER_SIZE)
+        battleshipSprite.setSize(cellSize, cellSize * BATTLESHIP_SIZE)
+        carrierSprite.setSize(cellSize, cellSize * CARRIER_SIZE)
     }
 
     private fun drawButton() {
@@ -239,7 +254,7 @@ class Warships : ApplicationAdapter() {
 
     private fun renderGrid() {
         grid.begin(ShapeRenderer.ShapeType.Line)
-        waterSpriteBatch.begin()
+        gridSpriteBatch.begin()
 
         for (i in MIN_COORDINATE..GRID_SIZE) {
             //vertical lines
@@ -251,24 +266,20 @@ class Warships : ApplicationAdapter() {
         //water
         for (x in MIN_COORDINATE..MAX_COORDINATE) {
             for (y in MIN_COORDINATE..MAX_COORDINATE) {
-                waterSpriteBatch.draw(waterTexture, cellSize * x, cellSize * y, cellSize, cellSize)
+                gridSpriteBatch.draw(waterTexture, cellSize * x, cellSize * y, cellSize, cellSize)
             }
         }
 
-        //draw coordinate labels
-        for (i in MIN_COORDINATE..MAX_COORDINATE) {
-            font.draw(waterSpriteBatch, coordinatePoints[i - 1], cellSize * (i), cellSize * (i))
-        }
-
-        gridBounds = Rectangle(cellSize, cellSize, cellSize * GRID_SIZE, cellSize * MAX_COORDINATE)
-
-        destroyerSprite.setSize(cellSize, cellSize)
-        cruiserSprite.setSize(cellSize, cellSize * CRUISER_SIZE)
-        battleshipSprite.setSize(cellSize, cellSize * BATTLESHIP_SIZE)
-        carrierSprite.setSize(cellSize, cellSize * CARRIER_SIZE)
-
-        waterSpriteBatch.end()
+        gridSpriteBatch.end()
         grid.end()
+
+        //draw coordinate labels
+        textSpriteBatch.begin()
+        for (i in MIN_COORDINATE..MAX_COORDINATE) {
+            font.draw(textSpriteBatch, coordinatePoints[i - 1], cellSize / 4, cellSize * (i + 1))
+            font.draw(textSpriteBatch, i.toString(), cellSize * i, fieldLength + cellSize)
+        }
+        textSpriteBatch.end()
     }
 
     private fun renderShip(ship: Ship) {
@@ -301,7 +312,7 @@ class Warships : ApplicationAdapter() {
             Gdx.app.exit()
         }
 
-        waterSpriteBatch.shader = waterShader
+        gridSpriteBatch.shader = waterShader
         waterShader.bind()
         waterShader.setUniformf("u_circleCenter", x, y)
         waterShader.setUniformf("u_circleRadius", MASK_SIZE)
@@ -348,6 +359,8 @@ class Warships : ApplicationAdapter() {
         private const val MAX_COORDINATE = 10
         private const val GRID_HEIGHT_RATIO = 1.1f
         private const val ROTATION = 270f
+
+        private const val FONT_SCALE_RATIO = 17
 
         private const val BUTTON_HORIZONTAL_MARGIN_RATIO = 1.5f
         private const val BUTTON_MARGIN_RATIO = 2f
