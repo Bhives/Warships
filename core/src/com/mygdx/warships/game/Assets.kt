@@ -1,4 +1,4 @@
-package com.mygdx.warships
+package com.mygdx.warships.game
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Texture
@@ -16,13 +16,16 @@ object Assets {
     lateinit var waterShader: ShaderProgram
     lateinit var shipsShader: ShaderProgram
 
-    fun load() {
+    fun loadCommonAssets() {
+        skin = Skin(Gdx.files.internal(SKIN_PATH))
+    }
+
+    fun loadWarshipsAssets() {
         waterTexture = Texture(Gdx.files.internal(WATER_TEXTURE))
         destroyerTexture = Texture(Gdx.files.internal(DESTROYER_TEXTURE))
         cruiserTexture = Texture(Gdx.files.internal(CRUISER_TEXTURE))
         battleshipTexture = Texture(Gdx.files.internal(BATTLESHIP_TEXTURE))
         carrierTexture = Texture(Gdx.files.internal(CARRIER_TEXTURE))
-        skin = Skin(Gdx.files.internal(SKIN_PATH))
         shipHdTexture = Texture(Gdx.files.internal(SHIP_MASK_TEXTURE))
         val vertexShader = Gdx.files.internal(VERTEX_SHADER)
         val waterFragmentShader = Gdx.files.internal(WATER_FRAGMENT_SHADER)

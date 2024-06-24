@@ -1,4 +1,4 @@
-package com.mygdx.warships
+package com.mygdx.warships.game
 
 import com.badlogic.gdx.InputProcessor
 
