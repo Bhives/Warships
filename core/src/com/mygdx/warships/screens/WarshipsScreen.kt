@@ -27,6 +27,7 @@ import com.mygdx.warships.game.Warships
 import com.mygdx.warships.game.Warships.Companion.COLOR_B
 import com.mygdx.warships.game.Warships.Companion.COLOR_G
 import com.mygdx.warships.game.Warships.Companion.COLOR_R
+import com.mygdx.warships.game.isTakenOrNear
 import com.mygdx.warships.model.Coordinates
 import com.mygdx.warships.model.Ship
 import java.util.Random
@@ -129,14 +130,14 @@ class WarshipsScreen(private val game: Warships) : Screen {
     }
 
     private fun setupSprites() {
-        destroyerSprite = Sprite(Assets.destroyerTexture)
-        cruiserSprite = Sprite(Assets.cruiserTexture)
-        battleshipSprite = Sprite(Assets.battleshipTexture)
         carrierSprite = Sprite(Assets.carrierTexture)
-        destroyerSprite.setSize(cellSize, cellSize)
-        cruiserSprite.setSize(cellSize, cellSize * CRUISER_SIZE)
-        battleshipSprite.setSize(cellSize, cellSize * BATTLESHIP_SIZE)
+        battleshipSprite = Sprite(Assets.battleshipTexture)
+        cruiserSprite = Sprite(Assets.cruiserTexture)
+        destroyerSprite = Sprite(Assets.destroyerTexture)
         carrierSprite.setSize(cellSize, cellSize * CARRIER_SIZE)
+        battleshipSprite.setSize(cellSize, cellSize * BATTLESHIP_SIZE)
+        cruiserSprite.setSize(cellSize, cellSize * CRUISER_SIZE)
+        destroyerSprite.setSize(cellSize, cellSize)
     }
 
     private fun drawButtons() {
@@ -176,47 +177,59 @@ class WarshipsScreen(private val game: Warships) : Screen {
     private fun positionShips() {
         ships.clear()
         filledCells.clear()
-        //destroyers
-        for (i in 0 until DESTROYERS_NUMBER) {
-            positionShip(
+        //carrier
+        var carrierPlaced = false
+        while (!carrierPlaced) {
+            carrierPlaced = positionShip(
                 getRandomPosition(),
                 getRandomPosition(),
-                DESTROYER_SIZE,
+                CARRIER_SIZE,
                 isHorizontal(),
-                destroyerSprite
-            )
-        }
-
-        //cruisers
-        for (i in 0 until CRUISERS_NUMBER) {
-            positionShip(
-                getRandomPosition(),
-                getRandomPosition(),
-                CRUISER_SIZE,
-                isHorizontal(),
-                cruiserSprite
+                carrierSprite
             )
         }
 
         //battleships
         for (i in 0 until BATTLESHIPS_NUMBER) {
-            positionShip(
-                getRandomPosition(),
-                getRandomPosition(),
-                BATTLESHIP_SIZE,
-                isHorizontal(),
-                battleshipSprite
-            )
+            var battleshipsPlaced = false
+            while (!battleshipsPlaced) {
+                battleshipsPlaced = positionShip(
+                    getRandomPosition(),
+                    getRandomPosition(),
+                    BATTLESHIP_SIZE,
+                    isHorizontal(),
+                    battleshipSprite
+                )
+            }
         }
 
-        //carrier
-        positionShip(
-            getRandomPosition(),
-            getRandomPosition(),
-            CARRIER_SIZE,
-            isHorizontal(),
-            carrierSprite
-        )
+        //cruisers
+        for (i in 0 until CRUISERS_NUMBER) {
+            var cruisersPlaced = false
+            while (!cruisersPlaced) {
+                cruisersPlaced = positionShip(
+                    getRandomPosition(),
+                    getRandomPosition(),
+                    CRUISER_SIZE,
+                    isHorizontal(),
+                    cruiserSprite
+                )
+            }
+        }
+
+        //destroyers
+        for (i in 0 until DESTROYERS_NUMBER) {
+            var destroyersPlaced = false
+            while (!destroyersPlaced) {
+                destroyersPlaced = positionShip(
+                    getRandomPosition(),
+                    getRandomPosition(),
+                    DESTROYER_SIZE,
+                    isHorizontal(),
+                    destroyerSprite
+                )
+            }
+        }
     }
 
     private fun positionShip(
@@ -229,22 +242,10 @@ class WarshipsScreen(private val game: Warships) : Screen {
         if (isHorizontal) {
             for (i in 0 until length) {
                 if (startCol + length > GRID_SIZE) {
-                    return positionShip(
-                        getRandomPosition(),
-                        getRandomPosition(),
-                        length,
-                        isHorizontal(),
-                        sprite
-                    )
+                    return false
                 }
-                if (filledCells.contains(Coordinates(startCol + i, startRow))) {
-                    return positionShip(
-                        getRandomPosition(),
-                        getRandomPosition(),
-                        length,
-                        isHorizontal(),
-                        sprite
-                    )
+                if (filledCells.isTakenOrNear(startCol + i, startRow)) {
+                    return false
                 }
             }
             for (i in 0 until length) {
@@ -254,22 +255,10 @@ class WarshipsScreen(private val game: Warships) : Screen {
         } else {
             for (i in 0 until length) {
                 if (startRow + length > GRID_SIZE) {
-                    return positionShip(
-                        getRandomPosition(),
-                        getRandomPosition(),
-                        length,
-                        isHorizontal(),
-                        sprite
-                    )
+                    return false
                 }
-                if (filledCells.contains(Coordinates(startCol, startRow + i))) {
-                    return positionShip(
-                        getRandomPosition(),
-                        getRandomPosition(),
-                        length,
-                        isHorizontal(),
-                        sprite
-                    )
+                if (filledCells.isTakenOrNear(startCol, startRow + i)) {
+                    return false
                 }
             }
             for (i in 0 until length) {
@@ -390,7 +379,7 @@ class WarshipsScreen(private val game: Warships) : Screen {
     }
 
     private fun getRandomPosition(): Int {
-        return Random().nextInt(MAX_COORDINATE - MIN_COORDINATE) + MIN_COORDINATE
+        return Random().nextInt(MAX_COORDINATE) + MIN_COORDINATE
     }
 
     private fun isHorizontal(): Boolean {
@@ -409,13 +398,15 @@ class WarshipsScreen(private val game: Warships) : Screen {
         private const val BUTTON_HORIZONTAL_MARGIN_RATIO = 1.5f
         private const val BUTTON_MARGIN_RATIO = 2f
 
-        private const val DESTROYERS_NUMBER = 4
-        private const val CRUISERS_NUMBER = 3
         private const val BATTLESHIPS_NUMBER = 2
-        private const val DESTROYER_SIZE = 1
-        private const val CRUISER_SIZE = 2
-        private const val BATTLESHIP_SIZE = 3
+        private const val CRUISERS_NUMBER = 3
+        private const val DESTROYERS_NUMBER = 4
+
         private const val CARRIER_SIZE = 4
+        private const val BATTLESHIP_SIZE = 3
+        private const val CRUISER_SIZE = 2
+        private const val DESTROYER_SIZE = 1
+
         private const val SHIP_SIZE_RATIO = 2
 
         private const val TEXT_SIZE_RATIO = 4
